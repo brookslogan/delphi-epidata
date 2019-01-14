@@ -111,7 +111,29 @@ def ensure_tables_exist():
         -- somehow)
       );
     ''')
-    cnx.commit()
+    cursor.execute('''
+      CREATE TABLE IF NOT EXISTS `norostat_point_version_list` (
+        `release_date` DATE NOT NULL,
+        `parse_time` DATETIME(6) NOT NULL,
+        FOREIGN KEY (`release_date`,`parse_time`) REFERENCES `norostat_raw_datatable_version_list` (`release_date`,`parse_time`),
+        PRIMARY KEY (`release_date`, `parse_time`)
+      );
+    ''');
+    cursor.execute('''
+      CREATE TABLE IF NOT EXISTS `norostat_point_diffs` (
+        `release_date` DATE NOT NULL,
+        `parse_time` datetime(6) NOT NULL,
+        `location_id` INT NOT NULL,
+        `epiweek` INT NOT NULL,
+        -- fixme this `new_value` should probably be a DOUBLE
+        `new_value` NVARCHAR(255), -- allow NULL, with meaning "removed"
+        FOREIGN KEY (`release_date`,`parse_time`) REFERENCES `norostat_point_version_list` (`release_date`,`parse_time`),
+        FOREIGN KEY (`location_id`) REFERENCES norostat_raw_datatable_location_pool (`location_id`),
+        UNIQUE KEY (`location_id`, `epiweek`, `release_date`, `parse_time`, `new_value`),
+        PRIMARY KEY (`release_date`, `parse_time`, `location_id`, `epiweek`)
+      );
+    ''')
+    cnx.commit() # (might do nothing; each statement above takes effect and/or commits immediately)
   finally:
     cnx.close()
 
@@ -348,28 +370,7 @@ def record_long_raw(long_raw):
             FROM `norostat_raw_datatable_next`
           );
       ''', next_version_if_any[0])
-    cursor.execute('''
-      CREATE TABLE IF NOT EXISTS `norostat_point_version_list` (
-        `release_date` DATE NOT NULL,
-        `parse_time` DATETIME(6) NOT NULL,
-        FOREIGN KEY (`release_date`,`parse_time`) REFERENCES `norostat_raw_datatable_version_list` (`release_date`,`parse_time`),
-        PRIMARY KEY (`release_date`, `parse_time`)
-      );
-    ''');
-    cursor.execute('''
-      CREATE TABLE IF NOT EXISTS `norostat_point_diffs` (
-        `release_date` DATE NOT NULL,
-        `parse_time` datetime(6) NOT NULL,
-        `location_id` INT NOT NULL,
-        `epiweek` INT NOT NULL,
-        `new_value` NVARCHAR(255), -- allow NULL, with meaning "removed"
-        FOREIGN KEY (`release_date`,`parse_time`) REFERENCES `norostat_point_version_list` (`release_date`,`parse_time`),
-        FOREIGN KEY (`location_id`) REFERENCES norostat_raw_datatable_location_pool (`location_id`),
-        UNIQUE KEY (`location_id`, `epiweek`, `release_date`, `parse_time`, `new_value`),
-        PRIMARY KEY (`release_date`, `parse_time`, `location_id`, `epiweek`)
-      );
-    ''')
-    cnx.commit() # (might do nothing; each statement above takes effect and/or commits immediately)
+      cnx.commit()
   finally:
     cnx.close()
 
